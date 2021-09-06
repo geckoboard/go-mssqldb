@@ -16,7 +16,7 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
-	"github.com/denisenkom/go-mssqldb/msdsn"
+	"github.com/geckoboard/go-mssqldb/msdsn"
 )
 
 func parseInstances(msg []byte) map[string]map[string]string {
