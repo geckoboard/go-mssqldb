@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/denisenkom/go-mssqldb/msdsn"
+	"github.com/geckoboard/go-mssqldb/msdsn"
 )
 
 func driverWithProcess(t *testing.T) *Driver {

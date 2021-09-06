@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/denisenkom/go-mssqldb/msdsn"
+	"github.com/geckoboard/go-mssqldb/msdsn"
 )
 
 // Federated authentication library affects the login data structure and message sequence.
