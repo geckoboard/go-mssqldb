@@ -4,8 +4,9 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"github.com/denisenkom/go-mssqldb"
 	"log"
+
+	mssql "github.com/geckoboard/go-mssqldb"
 )
 
 var (
@@ -43,12 +44,12 @@ const (
 
 	dropTVP = `DROP TYPE TestTVPSchema.exampleTVP;`
 
-	procedureWithTVP = `	
+	procedureWithTVP = `
 	CREATE PROCEDURE ExecTVP
 		@param1 TestTVPSchema.exampleTVP READONLY
-	AS   
+	AS
 	BEGIN
-		SET NOCOUNT ON; 
+		SET NOCOUNT ON;
 		SELECT * FROM @param1;
 	END;
 	`
