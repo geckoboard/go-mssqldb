@@ -8,6 +8,7 @@ import (
 	"math"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/geckoboard/go-mssqldb/internal/cp"
@@ -1114,7 +1115,7 @@ func makeGoLangScanType(ti typeInfo) reflect.Type {
 	case typeVariant:
 		return reflect.TypeOf(nil)
 	default:
-		panic(fmt.Sprintf("not implemented makeGoLangScanType for type %d", ti.TypeId))
+		return reflect.TypeOf(nil)
 	}
 }
 
@@ -1236,7 +1237,7 @@ func makeDecl(ti typeInfo) string {
 		}
 		return fmt.Sprintf("%s READONLY", ti.UdtInfo.TypeName)
 	default:
-		panic(fmt.Sprintf("not implemented makeDecl for type %#x", ti.TypeId))
+		return "unhandled"
 	}
 }
 
@@ -1342,8 +1343,10 @@ func makeGoLangTypeName(ti typeInfo) string {
 		return "SQL_VARIANT"
 	case typeBigBinary:
 		return "BINARY"
+	case typeUdt:
+		return strings.ToUpper(ti.UdtInfo.TypeName)
 	default:
-		panic(fmt.Sprintf("not implemented makeGoLangTypeName for type %d", ti.TypeId))
+		return "UNHANDLED"
 	}
 }
 
@@ -1466,7 +1469,7 @@ func makeGoLangTypeLength(ti typeInfo) (int64, bool) {
 	case typeBigBinary:
 		return int64(ti.Size), true
 	default:
-		panic(fmt.Sprintf("not implemented makeGoLangTypeLength for type %d", ti.TypeId))
+		return 0, false
 	}
 }
 
@@ -1577,6 +1580,6 @@ func makeGoLangTypePrecisionScale(ti typeInfo) (int64, int64, bool) {
 	case typeBigBinary:
 		return 0, 0, false
 	default:
-		panic(fmt.Sprintf("not implemented makeGoLangTypePrecisionScale for type %d", ti.TypeId))
+		return 0, 0, false
 	}
 }
