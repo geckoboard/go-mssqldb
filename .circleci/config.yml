@@ -1,0 +1,18 @@
+version: 2.1
+
+orbs:
+  deployment-tooling: geckoboard/deployment-tooling@1
+
+executors:
+  test:
+    docker:
+      - image: *go-image
+
+workflows:
+  test:
+    jobs:
+      - deployment-tooling/go-test:
+          name: test
+          executor: test
+          codecov: false
+          setup-go-env: false
