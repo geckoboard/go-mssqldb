@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"reflect"
 	"testing"
 
@@ -19,6 +21,56 @@ func TestBadOpen(t *testing.T) {
 	if err == nil {
 		t.Fail()
 	}
+}
+
+func TestStmt_sendQuery(t *testing.T) {
+	newStmt := func(query string, err error) *Stmt {
+		return &Stmt{
+			c: &Conn{
+				sess:           &tdsSession{buf: newTdsBuffer(100, netFailBuffer{err: err})},
+				connectionGood: true,
+			},
+			query: query,
+		}
+	}
+
+	t.Run("returns wrapped error when sending the sql batch fails", func(t *testing.T) {
+		origErr := &net.OpError{Op: "write", Net: "tcp", Err: os.ErrDeadlineExceeded}
+		s := newStmt("select 1;", origErr)
+
+		err := s.sendQuery(nil)
+		if err == nil {
+			t.Fatal("expected an error but got nil")
+		}
+
+		var netErr net.Error
+		if !errors.As(err, &netErr) || !netErr.Timeout() {
+			t.Errorf("expected error to unwrap to a net timeout but got %q", err)
+		}
+
+		if s.c.connectionGood {
+			t.Error("expected the connection to be marked bad but it was not")
+		}
+	})
+
+	t.Run("returns wrapped error when sending the rpc fails", func(t *testing.T) {
+		origErr := &net.OpError{Op: "write", Net: "tcp", Err: os.ErrDeadlineExceeded}
+		s := newStmt("someproc", origErr)
+
+		err := s.sendQuery(nil)
+		if err == nil {
+			t.Fatal("expected an error but got nil")
+		}
+
+		var netErr net.Error
+		if !errors.As(err, &netErr) || !netErr.Timeout() {
+			t.Errorf("expected error to unwrap to a net timeout but got %q", err)
+		}
+
+		if s.c.connectionGood {
+			t.Error("expected the connection to be marked bad but it was not")
+		}
+	})
 }
 
 func TestIsProc(t *testing.T) {

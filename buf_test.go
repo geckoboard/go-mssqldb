@@ -3,6 +3,8 @@ package mssql
 import (
 	"bytes"
 	"errors"
+	"net"
+	"os"
 	"testing"
 )
 
@@ -26,6 +28,22 @@ func (failBuffer) Write([]byte) (int, error) {
 }
 
 func (failBuffer) Close() error {
+	return nil
+}
+
+type netFailBuffer struct {
+	err error
+}
+
+func (b netFailBuffer) Read([]byte) (int, error) {
+	return 0, b.err
+}
+
+func (b netFailBuffer) Write([]byte) (int, error) {
+	return 0, b.err
+}
+
+func (netFailBuffer) Close() error {
 	return nil
 }
 
@@ -300,17 +318,41 @@ func TestReadUsVarCharOrPanic(t *testing.T) {
 }
 
 func TestReadBVarCharOrPanic(t *testing.T) {
-	memBuf := bytes.NewBuffer([]byte{3, 0x31, 0, 0x32, 0, 0x33, 0})
-	s := readBVarCharOrPanic(memBuf)
-	if s != "123" {
-		t.Errorf("readBVarCharOrPanic expected to return 123 but it returned %s", s)
-	}
+	t.Run("reads the varchar", func(t *testing.T) {
+		memBuf := bytes.NewBuffer([]byte{3, 0x31, 0, 0x32, 0, 0x33, 0})
+		s := readBVarCharOrPanic(memBuf)
+		if s != "123" {
+			t.Errorf("readBVarCharOrPanic expected to return 123 but it returned %s", s)
+		}
+	})
 
-	// test invalid varchar
-	defer func() {
-		recover()
-	}()
-	memBuf = bytes.NewBuffer([]byte{})
-	_ = readBVarCharOrPanic(memBuf)
-	t.Fatal("readBVarCharOrPanic() should panic on empty buffer, but it didn't")
+	t.Run("panics when the buffer is empty", func(t *testing.T) {
+		defer func() {
+			recover()
+		}()
+
+		_ = readBVarCharOrPanic(bytes.NewBuffer([]byte{}))
+		t.Fatal("readBVarCharOrPanic() should panic on empty buffer, but it didn't")
+	})
+
+	t.Run("panics with an error unwrapping to the transport error when the read fails", func(t *testing.T) {
+		origErr := &net.OpError{Op: "read", Net: "tcp", Err: os.ErrDeadlineExceeded}
+
+		defer func() {
+			r := recover()
+			e, ok := r.(error)
+			if !ok {
+				t.Fatalf("expected to recover an error but got %+v", r)
+			}
+
+			var netErr net.Error
+			if !errors.As(e, &netErr) || !netErr.Timeout() {
+				t.Errorf("expected recovered error to unwrap to a net timeout but got %q", e)
+			}
+		}()
+
+		_ = readBVarCharOrPanic(netFailBuffer{err: origErr})
+
+		t.Fatal("expected readBVarCharOrPanic to panic but it did not")
+	})
 }

@@ -4,6 +4,8 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"net"
+	"os"
 	"strings"
 	"testing"
 )
@@ -50,6 +52,34 @@ func TestRetryableError(t *testing.T) {
 
 }
 
+func TestStreamError(t *testing.T) {
+	t.Run("returns the formatted message when no error is wrapped", func(t *testing.T) {
+		err := streamErrorf("unexpected token %d", 42)
+
+		if got, want := err.Error(), "Invalid TDS stream: unexpected token 42"; got != want {
+			t.Errorf("got message %q, want %q", got, want)
+		}
+
+		if unwrapped := errors.Unwrap(err); unwrapped != nil {
+			t.Errorf("got wrapped error %q, want nil", unwrapped)
+		}
+	})
+
+	t.Run("unwraps to the original error when the format wraps it", func(t *testing.T) {
+		origErr := &net.OpError{Op: "read", Net: "tcp", Err: os.ErrDeadlineExceeded}
+		err := streamErrorf("Reading PLP type failed: %w", origErr)
+
+		if got, want := err.Error(), "Invalid TDS stream: Reading PLP type failed: read tcp: i/o timeout"; got != want {
+			t.Errorf("got message %q, want %q", got, want)
+		}
+
+		var netErr net.Error
+		if !errors.As(err, &netErr) || !netErr.Timeout() {
+			t.Errorf("expected error to unwrap to a net timeout but got %q", err)
+		}
+	})
+}
+
 func TestBadStreamPanic(t *testing.T) {
 
 	errMsg := "test error XYZ"
@@ -57,9 +87,14 @@ func TestBadStreamPanic(t *testing.T) {
 
 	defer func() {
 		r := recover()
-		if e, ok := r.(error); !ok || !strings.HasSuffix(e.Error(), errMsg) {
+		e, ok := r.(error)
+		if !ok || !strings.HasSuffix(e.Error(), errMsg) {
 			t.Fatalf("unexpected error recovered from panic: "+
 				"got error = '%+v', wanted error to end with '%s'", e, errMsg)
+		}
+
+		if !errors.Is(e, err) {
+			t.Errorf("expected recovered error to unwrap to the original error but got %q", e)
 		}
 	}()
 

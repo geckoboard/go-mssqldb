@@ -672,7 +672,7 @@ func readPLPType(ti *typeInfo, r *tdsBuffer) interface{} {
 			break
 		}
 		if _, err := io.CopyN(buf, r, int64(chunksize)); err != nil {
-			badStreamPanicf("Reading PLP type failed: %s", err.Error())
+			badStreamPanicf("Reading PLP type failed: %w", err)
 		}
 	}
 	switch ti.TypeId {
