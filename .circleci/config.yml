@@ -3,6 +3,11 @@ version: 2.1
 orbs:
   deployment-tooling: geckoboard/deployment-tooling@1
 
+parameters:
+  go-image:
+    type: string
+    default: &go-image cimg/go:1.25
+
 executors:
   test:
     docker:

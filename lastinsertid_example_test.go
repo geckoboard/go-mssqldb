@@ -10,7 +10,7 @@ import (
 )
 
 // This example shows the usage of Connector type
-func ExampleLastInsertId() {
+func Example_lastInsertId() {
 	flag.Parse()
 
 	if *debug {
