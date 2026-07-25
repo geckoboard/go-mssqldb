@@ -910,8 +910,10 @@ func dialConnection(ctx context.Context, c *Connector, p msdsn.Config) (conn net
 	}
 	// Can't do the usual err != nil check, as it is possible to have gotten an error before a successful connection
 	if conn == nil {
-		f := "unable to open tcp connection with host '%v:%v': %v"
-		return nil, fmt.Errorf(f, p.Host, resolveServerPort(p.Port), err.Error())
+		return nil, fmt.Errorf(
+			"unable to open tcp connection with host '%v:%v': %w",
+			p.Host, resolveServerPort(p.Port), err,
+		)
 	}
 	return conn, err
 }
