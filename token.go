@@ -169,7 +169,7 @@ func processEnvChg(sess *tdsSession) {
 			}
 			packetsizei, err := strconv.Atoi(packetsize)
 			if err != nil {
-				badStreamPanicf("Invalid Packet size value returned from server (%s): %s", packetsize, err.Error())
+				badStreamPanicf("Invalid Packet size value returned from server (%s): %w", packetsize, err)
 			}
 			sess.buf.ResizeBuffer(packetsizei)
 		case envSortId:

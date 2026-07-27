@@ -2,6 +2,7 @@ package mssql
 
 import (
 	"database/sql/driver"
+	"errors"
 	"fmt"
 )
 
@@ -58,18 +59,29 @@ func (e Error) SQLErrorLineNo() int32 {
 
 type StreamError struct {
 	Message string
+
+	err error
 }
 
 func (e StreamError) Error() string {
 	return e.Message
 }
 
+func (e StreamError) Unwrap() error {
+	return e.err
+}
+
 func streamErrorf(format string, v ...interface{}) StreamError {
-	return StreamError{"Invalid TDS stream: " + fmt.Sprintf(format, v...)}
+	err := fmt.Errorf(format, v...)
+
+	return StreamError{
+		Message: "Invalid TDS stream: " + err.Error(),
+		err:     errors.Unwrap(err),
+	}
 }
 
 func badStreamPanic(err error) {
-	panic(streamErrorf("%v", err))
+	panic(streamErrorf("%w", err))
 }
 
 func badStreamPanicf(format string, v ...interface{}) {

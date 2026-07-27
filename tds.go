@@ -910,8 +910,10 @@ func dialConnection(ctx context.Context, c *Connector, p msdsn.Config) (conn net
 	}
 	// Can't do the usual err != nil check, as it is possible to have gotten an error before a successful connection
 	if conn == nil {
-		f := "unable to open tcp connection with host '%v:%v': %v"
-		return nil, fmt.Errorf(f, p.Host, resolveServerPort(p.Port), err.Error())
+		return nil, fmt.Errorf(
+			"unable to open tcp connection with host '%v:%v': %w",
+			p.Host, resolveServerPort(p.Port), err,
+		)
 	}
 	return conn, err
 }
@@ -1057,8 +1059,7 @@ func connect(ctx context.Context, c *Connector, log optionalLogger, p msdsn.Conf
 		d := c.getDialer(&p)
 		instances, err := getInstances(dialCtx, d, p.Host)
 		if err != nil {
-			f := "unable to get instances from Sql Server Browser on host %v: %v"
-			return nil, fmt.Errorf(f, p.Host, err.Error())
+			return nil, fmt.Errorf("unable to get instances from Sql Server Browser on host %v: %w", p.Host, err)
 		}
 		strport, ok := instances[p.Instance]["tcp"]
 		if !ok {
@@ -1067,8 +1068,7 @@ func connect(ctx context.Context, c *Connector, log optionalLogger, p msdsn.Conf
 		}
 		port, err := strconv.ParseUint(strport, 0, 16)
 		if err != nil {
-			f := "invalid tcp port returned from Sql Server Browser '%v': %v"
-			return nil, fmt.Errorf(f, strport, err.Error())
+			return nil, fmt.Errorf("invalid tcp port returned from Sql Server Browser '%v': %w", strport, err)
 		}
 		p.Port = port
 	}
@@ -1159,7 +1159,7 @@ initiate_connection:
 		passthrough.c = toconn
 		outbuf.transport = tlsConn
 		if err != nil {
-			return nil, fmt.Errorf("TLS Handshake failed: %v", err)
+			return nil, fmt.Errorf("TLS Handshake failed: %w", err)
 		}
 		if encrypt == encryptOff {
 			outbuf.afterFirst = func() {
@@ -1253,7 +1253,7 @@ initiate_connection:
 					return nil, tokenErr
 				}
 			case error:
-				return nil, fmt.Errorf("login error: %s", token.Error())
+				return nil, fmt.Errorf("login error: %w", token)
 			}
 		}
 	}

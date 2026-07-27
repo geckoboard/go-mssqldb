@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"io"
 	"net"
 	"net/url"
@@ -660,4 +661,36 @@ func runBatch(t testing.TB, p msdsn.Config) {
 			return
 		}
 	}
+}
+
+func TestDialConnection(t *testing.T) {
+	t.Run("returns wrapped error when the dial times out", func(t *testing.T) {
+		c := &Connector{
+			Dialer: testDialer{
+				err: &net.OpError{
+					Op:  "dial",
+					Net: "tcp",
+					Err: os.ErrDeadlineExceeded,
+				},
+			},
+		}
+
+		_, err := dialConnection(t.Context(), c, msdsn.Config{Host: "127.0.0.1", Port: 1433})
+		if err == nil {
+			t.Fatal("expected an error but got nil")
+		}
+
+		var netErr net.Error
+		if !errors.As(err, &netErr) || !netErr.Timeout() {
+			t.Errorf("expected error to unwrap to a net timeout but got %q", err)
+		}
+	})
+}
+
+type testDialer struct {
+	err error
+}
+
+func (d testDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	return nil, d.err
 }

@@ -477,7 +477,7 @@ func (s *Stmt) sendQuery(args []namedValue) (err error) {
 				conn.sess.log.Printf("Failed to send SqlBatch with %v", err)
 			}
 			conn.connectionGood = false
-			return fmt.Errorf("failed to send SQL Batch: %v", err)
+			return fmt.Errorf("failed to send SQL Batch: %w", err)
 		}
 	} else {
 		proc := sp_ExecuteSql
@@ -502,7 +502,7 @@ func (s *Stmt) sendQuery(args []namedValue) (err error) {
 				conn.sess.log.Printf("Failed to send Rpc with %v", err)
 			}
 			conn.connectionGood = false
-			return fmt.Errorf("failed to send RPC: %v", err)
+			return fmt.Errorf("failed to send RPC: %w", err)
 		}
 	}
 	return
