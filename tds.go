@@ -859,10 +859,8 @@ func dialConnection(ctx context.Context, c *Connector, p msdsn.Config) (conn net
 	if ip == nil {
 		d := c.getDialer(&p)
 		if r, ok := d.(Resolver); ok {
-			// Prefer the Dialer's own resolution over net.LookupIP so a
-			// security-validating Dialer (e.g. safedialer) is the one
-			// deciding which addresses are safe to dial, rather than being
-			// handed an address it never resolved or validated itself.
+			// Allow a Dialer to supply a custom implemenation to be used
+			// instead of net.LookupIP
 			var ipAddrs []net.IPAddr
 			ipAddrs, err = r.ResolveHost(ctx, p.Host)
 			if err != nil {
