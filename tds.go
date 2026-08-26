@@ -857,9 +857,26 @@ func dialConnection(ctx context.Context, c *Connector, p msdsn.Config) (conn net
 	var ips []net.IP
 	ip := net.ParseIP(p.Host)
 	if ip == nil {
-		ips, err = net.LookupIP(p.Host)
-		if err != nil {
-			return
+		d := c.getDialer(&p)
+		if r, ok := d.(Resolver); ok {
+			// Prefer the Dialer's own resolution over net.LookupIP so a
+			// security-validating Dialer (e.g. safedialer) is the one
+			// deciding which addresses are safe to dial, rather than being
+			// handed an address it never resolved or validated itself.
+			var ipAddrs []net.IPAddr
+			ipAddrs, err = r.ResolveHost(ctx, p.Host)
+			if err != nil {
+				return
+			}
+			ips = make([]net.IP, len(ipAddrs))
+			for i, ipAddr := range ipAddrs {
+				ips[i] = ipAddr.IP
+			}
+		} else {
+			ips, err = net.LookupIP(p.Host)
+			if err != nil {
+				return
+			}
 		}
 	} else {
 		ips = []net.IP{ip}

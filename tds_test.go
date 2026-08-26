@@ -685,6 +685,61 @@ func TestDialConnection(t *testing.T) {
 			t.Errorf("expected error to unwrap to a net timeout but got %q", err)
 		}
 	})
+
+	t.Run("uses ResolveHost instead of net.LookupIP when the Dialer implements Resolver", func(t *testing.T) {
+		var dialedAddrs []string
+		d := &testResolvingDialer{
+			resolveHost: func(ctx context.Context, host string) ([]net.IPAddr, error) {
+				if host != "sqlhost.internal" {
+					t.Fatalf("expected ResolveHost to be called with the original hostname, got %q", host)
+				}
+				return []net.IPAddr{{IP: net.ParseIP("203.0.113.10")}}, nil
+			},
+			dial: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				dialedAddrs = append(dialedAddrs, addr)
+				return nil, errors.New("test dialer refuses to actually connect")
+			},
+		}
+		c := &Connector{Dialer: d}
+
+		_, _ = dialConnection(t.Context(), c, msdsn.Config{Host: "sqlhost.internal", Port: 1433})
+
+		if !d.resolveHostCalled {
+			t.Fatal("expected ResolveHost to be called")
+		}
+		if len(dialedAddrs) != 1 || dialedAddrs[0] != "203.0.113.10:1433" {
+			t.Fatalf("expected a dial to the ResolveHost-provided IP, got %v", dialedAddrs)
+		}
+	})
+
+	t.Run("propagates a ResolveHost error instead of falling back to net.LookupIP", func(t *testing.T) {
+		wantErr := errors.New("host is not safe to dial")
+		d := &testResolvingDialer{
+			resolveHost: func(ctx context.Context, host string) ([]net.IPAddr, error) {
+				return nil, wantErr
+			},
+		}
+		c := &Connector{Dialer: d}
+
+		_, err := dialConnection(t.Context(), c, msdsn.Config{Host: "sqlhost.internal", Port: 1433})
+		if !errors.Is(err, wantErr) {
+			t.Fatalf("expected ResolveHost's error to be returned, got %q", err)
+		}
+	})
+
+	t.Run("falls back to net.LookupIP when the Dialer does not implement Resolver", func(t *testing.T) {
+		// testDialer implements only Dialer, not Resolver. Resolving 127.0.0.1
+		// never touches the network (net.ParseIP short-circuits it), so this
+		// exercises the plain-Dialer path without a real DNS lookup.
+		c := &Connector{
+			Dialer: testDialer{err: errors.New("test dialer refuses to actually connect")},
+		}
+
+		_, err := dialConnection(t.Context(), c, msdsn.Config{Host: "127.0.0.1", Port: 1433})
+		if err == nil || err.Error() == "" {
+			t.Fatalf("expected the plain-Dialer path to still run, got %q", err)
+		}
+	})
 }
 
 type testDialer struct {
@@ -693,4 +748,23 @@ type testDialer struct {
 
 func (d testDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	return nil, d.err
+}
+
+// testResolvingDialer implements both Dialer and Resolver.
+type testResolvingDialer struct {
+	resolveHost       func(ctx context.Context, host string) ([]net.IPAddr, error)
+	dial              func(ctx context.Context, network, addr string) (net.Conn, error)
+	resolveHostCalled bool
+}
+
+func (d *testResolvingDialer) ResolveHost(ctx context.Context, host string) ([]net.IPAddr, error) {
+	d.resolveHostCalled = true
+	return d.resolveHost(ctx, host)
+}
+
+func (d *testResolvingDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	if d.dial == nil {
+		return nil, errors.New("unexpected dial")
+	}
+	return d.dial(ctx, network, addr)
 }
