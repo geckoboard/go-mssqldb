@@ -857,9 +857,24 @@ func dialConnection(ctx context.Context, c *Connector, p msdsn.Config) (conn net
 	var ips []net.IP
 	ip := net.ParseIP(p.Host)
 	if ip == nil {
-		ips, err = net.LookupIP(p.Host)
-		if err != nil {
-			return
+		d := c.getDialer(&p)
+		if r, ok := d.(Resolver); ok {
+			// Allow a Dialer to supply a custom implemenation to be used
+			// instead of net.LookupIP
+			var ipAddrs []net.IPAddr
+			ipAddrs, err = r.ResolveHost(ctx, p.Host)
+			if err != nil {
+				return
+			}
+			ips = make([]net.IP, len(ipAddrs))
+			for i, ipAddr := range ipAddrs {
+				ips[i] = ipAddr.IP
+			}
+		} else {
+			ips, err = net.LookupIP(p.Host)
+			if err != nil {
+				return
+			}
 		}
 	} else {
 		ips = []net.IP{ip}

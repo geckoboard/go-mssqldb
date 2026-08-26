@@ -157,6 +157,19 @@ type Dialer interface {
 	DialContext(ctx context.Context, network string, addr string) (net.Conn, error)
 }
 
+// Resolver is an optional interface a Dialer may implement to pre-resolve a
+// host into the addresses safe to dial, instead of dialConnection resolving
+// it with net.LookupIP.
+//
+// A Dialer wrapping a security-validating resolver (e.g. one that denies
+// private/reserved addresses) must implement this so dialConnection uses
+// that validated resolution - including for AlwaysOn Availability Group
+// listeners, which resolve to multiple IPs raced against each other -
+// rather than an unvalidated net.LookupIP result.
+type Resolver interface {
+	ResolveHost(ctx context.Context, host string) ([]net.IPAddr, error)
+}
+
 func (c *Connector) getDialer(p *msdsn.Config) Dialer {
 	if c != nil && c.Dialer != nil {
 		return c.Dialer
